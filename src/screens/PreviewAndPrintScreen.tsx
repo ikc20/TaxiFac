@@ -1,79 +1,64 @@
 /* eslint-disable react-native/no-inline-styles */
 import React from 'react';
 import { View, Text, TouchableOpacity, Alert, ScrollView, ActivityIndicator } from 'react-native';
-
-// Déclaration TypeScript pour le module
-declare module 'react-native-bluetooth-escpos-printer' {
-  interface BluetoothEscposPrinter {
-    connectPrinter(macAddress: string): Promise<void>;
-    disconnectPrinter(): Promise<void>;
-    printerAlign(align: number): Promise<void>;
-    setBlob(weight: number): Promise<void>;
-    printText(text: string, options: any): Promise<void>;
-    cutPaper(): Promise<void>;
-  }
-
-  const BluetoothEscposPrinter: BluetoothEscposPrinter;
-  export default BluetoothEscposPrinter;
-}
-
-const ALIGN = {
-  LEFT: 0,
-  CENTER: 1,
-  RIGHT: 2,
-};
+import BluetoothEscposPrinter from 'react-native-bluetooth-escpos-printer';
 
 const PreviewAndPrintScreen = ({ route }: any) => {
   const { ticketData, device } = route.params;
   const [isPrinting, setIsPrinting] = React.useState(false);
 
-  const {
-    nom,
-    immat,
-    stat,
-    debut,
-    fin,
-    prixCourse,
-    supplement,
-    tva,
-  } = ticketData;
-
-  const total = (parseFloat(prixCourse) + parseFloat(supplement)).toFixed(2);
-  const montantTVA = ((parseFloat(total) * parseFloat(tva)) / (100 + parseFloat(tva))).toFixed(2);
-
   const printTicket = async () => {
     setIsPrinting(true);
     try {
-      const BluetoothEscposPrinter = require('react-native-bluetooth-escpos-printer').default;
+      await BluetoothEscposPrinter.connectPrinter(device.address);
 
-      await BluetoothEscposPrinter.connectPrinter(device.id);
-      await BluetoothEscposPrinter.printerAlign(ALIGN.CENTER);
+      // Configuration de l'imprimante
+      await BluetoothEscposPrinter.printerAlign(BluetoothEscposPrinter.ALIGN.CENTER);
       await BluetoothEscposPrinter.setBlob(0);
 
-      // En-tête
-      await BluetoothEscposPrinter.printText('TICKET CLIENT\n', {});
+      // Impression du ticket
+      await BluetoothEscposPrinter.printText('TICKET CLIENT\n\n', {});
       await BluetoothEscposPrinter.printText('NOTE DE TAXI\n\n', {});
 
-      // Informations client
-      await BluetoothEscposPrinter.printText(`NOM: ${nom}\n`, {});
-      await BluetoothEscposPrinter.printText(`IMMAT: ${immat}\n`, {});
-      await BluetoothEscposPrinter.printText(`STAT: ${stat}\n\n`, {});
+      // Détails du client
+      await BluetoothEscposPrinter.printerAlign(BluetoothEscposPrinter.ALIGN.LEFT);
+      await BluetoothEscposPrinter.printText(`NOM: ${ticketData.nom}\n`, {});
+      await BluetoothEscposPrinter.printText(`IMMAT: ${ticketData.immat}\n`, {});
+      await BluetoothEscposPrinter.printText(`STAT: ${ticketData.stat}\n\n`, {});
 
       // Horaires
-      await BluetoothEscposPrinter.printText(`DEBUT: ${debut}\n`, {});
-      await BluetoothEscposPrinter.printText(`FIN: ${fin}\n\n`, {});
+      await BluetoothEscposPrinter.printText(`DEBUT: ${ticketData.debut}\n`, {});
+      await BluetoothEscposPrinter.printText(`FIN: ${ticketData.fin}\n\n`, {});
 
-      // Prix
-      await BluetoothEscposPrinter.printText(`PRIX COURSE €       ${prixCourse}\n`, {});
-      await BluetoothEscposPrinter.printText('(TTC HORS SUPPLEMENTS)\n\n', {});
-
-      // Suppléments
-      await BluetoothEscposPrinter.printText('SUPPLEMENTS\n', {});
-      await BluetoothEscposPrinter.printText(`1Ap. reserv. €       ${supplement}\n\n`, {});
+      // Montants
+      await BluetoothEscposPrinter.printText('DÉTAIL DU PAIEMENT\n', {});
+      await BluetoothEscposPrinter.printColumn(
+        [16, 16],
+        [BluetoothEscposPrinter.ALIGN.LEFT, BluetoothEscposPrinter.ALIGN.RIGHT],
+        ['Prix course:', `${ticketData.prixCourse}€`],
+        {}
+      );
+      await BluetoothEscposPrinter.printColumn(
+        [16, 16],
+        [BluetoothEscposPrinter.ALIGN.LEFT, BluetoothEscposPrinter.ALIGN.RIGHT],
+        ['Supplément:', `${ticketData.supplement}€`],
+        {}
+      );
+      await BluetoothEscposPrinter.printColumn(
+        [16, 16],
+        [BluetoothEscposPrinter.ALIGN.LEFT, BluetoothEscposPrinter.ALIGN.RIGHT],
+        ['TVA:', `${ticketData.tva}%`],
+        {}
+      );
 
       // Total
-      await BluetoothEscposPrinter.printText(`A PAYER TTC €        ${total}\n`, {});
-      await BluetoothEscposPrinter.printText(`DONT TVA ${tva}%         ${montantTVA}\n\n`, {});
+      await BluetoothEscposPrinter.printText('\n', {});
+      await BluetoothEscposPrinter.printColumn(
+        [16, 16],
+        [BluetoothEscposPrinter.ALIGN.LEFT, BluetoothEscposPrinter.ALIGN.RIGHT],
+        ['TOTAL:', `${(parseFloat(ticketData.prixCourse) + parseFloat(ticketData.supplement)).toFixed(2)}€`],
+        { weight: 1 }
+      );
 
       // Coupure du papier
       await BluetoothEscposPrinter.printText('\n\n\n\n', {});
@@ -81,15 +66,14 @@ const PreviewAndPrintScreen = ({ route }: any) => {
 
       Alert.alert('Succès', 'Ticket imprimé avec succès');
     } catch (error) {
-      console.error('Erreur impression:', error);
-      Alert.alert('Erreur', 'Impression échouée. Vérifiez la connexion Bluetooth.');
+      console.error('Print error:', error);
+      Alert.alert('Erreur', `Échec de l'impression: ${error.message}`);
     } finally {
       setIsPrinting(false);
       try {
-        const BluetoothEscposPrinter = require('react-native-bluetooth-escpos-printer').default;
         await BluetoothEscposPrinter.disconnectPrinter();
       } catch (e) {
-        console.warn('Erreur déconnexion:', e);
+        console.warn('Déconnexion échouée:', e);
       }
     }
   };
@@ -99,18 +83,18 @@ const PreviewAndPrintScreen = ({ route }: any) => {
       <Text style={{ fontSize: 22, fontWeight: 'bold', marginBottom: 20 }}>Aperçu du Ticket</Text>
 
       <View style={{ backgroundColor: '#f5f5f5', padding: 16, borderRadius: 10 }}>
+        {/* Aperçu du ticket similaire à ce qui sera imprimé */}
         <Text style={{ textAlign: 'center', fontWeight: 'bold' }}>TICKET CLIENT</Text>
         <Text style={{ textAlign: 'center', fontWeight: 'bold' }}>NOTE DE TAXI</Text>
-        <Text>{`\nNOM: ${nom}`}</Text>
-        <Text>{`IMMAT: ${immat}`}</Text>
-        <Text>{`STAT: ${stat}\n`}</Text>
-        <Text>{`DEBUT: ${debut}`}</Text>
-        <Text>{`FIN: ${fin}\n`}</Text>
-        <Text>{`PRIX COURSE €       ${prixCourse}`}</Text>
-        <Text>(TTC HORS SUPPLEMENTS)</Text>
-        <Text>{`\nSUPPLEMENTS\n1Ap. reserv. €       ${supplement}`}</Text>
-        <Text>{`\nA PAYER TTC €        ${total}`}</Text>
-        <Text>{`DONT TVA ${tva}%         ${montantTVA}\n`}</Text>
+        <Text>{`\nNOM: ${ticketData.nom}`}</Text>
+        <Text>{`IMMAT: ${ticketData.immat}`}</Text>
+        <Text>{`STAT: ${ticketData.stat}\n`}</Text>
+        <Text>{`DEBUT: ${ticketData.debut}`}</Text>
+        <Text>{`FIN: ${ticketData.fin}\n`}</Text>
+        <Text>{`PRIX COURSE: ${ticketData.prixCourse}€`}</Text>
+        <Text>{`SUPPLEMENT: ${ticketData.supplement}€`}</Text>
+        <Text>{`TVA: ${ticketData.tva}%`}</Text>
+        <Text>{`\nTOTAL: ${(parseFloat(ticketData.prixCourse) + parseFloat(ticketData.supplement)).toFixed(2)}€`}</Text>
       </View>
 
       <TouchableOpacity
