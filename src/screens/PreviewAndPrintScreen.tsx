@@ -1,9 +1,12 @@
-/* eslint-disable react-native/no-inline-styles */
 import React from 'react';
 import { View, Text, TouchableOpacity, Alert, ScrollView, ActivityIndicator } from 'react-native';
 import BluetoothEscposPrinter from 'react-native-bluetooth-escpos-printer';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../navigation/types';
 
-const PreviewAndPrintScreen = ({ route }: any) => {
+type Props = NativeStackScreenProps<RootStackParamList, 'PreviewAndPrintScreen'>;
+
+const PreviewAndPrintScreen = ({ route }: Props) => {
   const { ticketData, device } = route.params;
   const [isPrinting, setIsPrinting] = React.useState(false);
 
@@ -12,62 +15,58 @@ const PreviewAndPrintScreen = ({ route }: any) => {
     try {
       await BluetoothEscposPrinter.connectPrinter(device.address);
 
-      // Configuration de l'imprimante
       await BluetoothEscposPrinter.printerAlign(BluetoothEscposPrinter.ALIGN.CENTER);
       await BluetoothEscposPrinter.setBlob(0);
-
-      // Impression du ticket
       await BluetoothEscposPrinter.printText('TICKET CLIENT\n\n', {});
       await BluetoothEscposPrinter.printText('NOTE DE TAXI\n\n', {});
-
-      // Détails du client
       await BluetoothEscposPrinter.printerAlign(BluetoothEscposPrinter.ALIGN.LEFT);
+
       await BluetoothEscposPrinter.printText(`NOM: ${ticketData.nom}\n`, {});
       await BluetoothEscposPrinter.printText(`IMMAT: ${ticketData.immat}\n`, {});
       await BluetoothEscposPrinter.printText(`STAT: ${ticketData.stat}\n\n`, {});
-
-      // Horaires
       await BluetoothEscposPrinter.printText(`DEBUT: ${ticketData.debut}\n`, {});
       await BluetoothEscposPrinter.printText(`FIN: ${ticketData.fin}\n\n`, {});
-
-      // Montants
       await BluetoothEscposPrinter.printText('DÉTAIL DU PAIEMENT\n', {});
+
+      const prix = parseFloat(ticketData.prixCourse) || 0;
+      const supplement = parseFloat(ticketData.supplement) || 0;
+      const tva = parseFloat(ticketData.tva) || 0;
+      const total = (prix + supplement).toFixed(2);
+
       await BluetoothEscposPrinter.printColumn(
         [16, 16],
         [BluetoothEscposPrinter.ALIGN.LEFT, BluetoothEscposPrinter.ALIGN.RIGHT],
-        ['Prix course:', `${ticketData.prixCourse}€`],
+        ['Prix course:', `${prix.toFixed(2)}€`],
         {}
       );
       await BluetoothEscposPrinter.printColumn(
         [16, 16],
         [BluetoothEscposPrinter.ALIGN.LEFT, BluetoothEscposPrinter.ALIGN.RIGHT],
-        ['Supplément:', `${ticketData.supplement}€`],
+        ['Supplément:', `${supplement.toFixed(2)}€`],
         {}
       );
       await BluetoothEscposPrinter.printColumn(
         [16, 16],
         [BluetoothEscposPrinter.ALIGN.LEFT, BluetoothEscposPrinter.ALIGN.RIGHT],
-        ['TVA:', `${ticketData.tva}%`],
+        ['TVA:', `${tva}%`],
         {}
       );
 
-      // Total
       await BluetoothEscposPrinter.printText('\n', {});
       await BluetoothEscposPrinter.printColumn(
         [16, 16],
         [BluetoothEscposPrinter.ALIGN.LEFT, BluetoothEscposPrinter.ALIGN.RIGHT],
-        ['TOTAL:', `${(parseFloat(ticketData.prixCourse) + parseFloat(ticketData.supplement)).toFixed(2)}€`],
+        ['TOTAL:', `${total}€`],
         { weight: 1 }
       );
 
-      // Coupure du papier
       await BluetoothEscposPrinter.printText('\n\n\n\n', {});
       await BluetoothEscposPrinter.cutPaper();
 
       Alert.alert('Succès', 'Ticket imprimé avec succès');
-    } catch (error) {
-      console.error('Print error:', error);
-      Alert.alert('Erreur', `Échec de l'impression: ${error.message}`);
+    } catch (error: any) {
+      console.error('Erreur impression:', error);
+      Alert.alert('Erreur', error?.message || 'Échec de l\'impression');
     } finally {
       setIsPrinting(false);
       try {
@@ -83,7 +82,6 @@ const PreviewAndPrintScreen = ({ route }: any) => {
       <Text style={{ fontSize: 22, fontWeight: 'bold', marginBottom: 20 }}>Aperçu du Ticket</Text>
 
       <View style={{ backgroundColor: '#f5f5f5', padding: 16, borderRadius: 10 }}>
-        {/* Aperçu du ticket similaire à ce qui sera imprimé */}
         <Text style={{ textAlign: 'center', fontWeight: 'bold' }}>TICKET CLIENT</Text>
         <Text style={{ textAlign: 'center', fontWeight: 'bold' }}>NOTE DE TAXI</Text>
         <Text>{`\nNOM: ${ticketData.nom}`}</Text>

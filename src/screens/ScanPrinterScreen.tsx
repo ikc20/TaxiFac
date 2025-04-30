@@ -1,27 +1,41 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, FlatList, StyleSheet, Alert, PermissionsAndroid, Platform } from 'react-native';
-import BluetoothEscposPrinter from 'react-native-bluetooth-escpos-printer';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  FlatList,
+  StyleSheet,
+  Alert,
+  PermissionsAndroid,
+  Platform,
+} from 'react-native';
 
-const ScanPrinterScreen = ({ navigation }: any) => {
+import EscPosPrinter from 'react-native-bluetooth-escpos-printer';
+const { BluetoothManager, BluetoothEscposPrinter } = EscPosPrinter;
+
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../navigation/types';
+
+type Props = NativeStackScreenProps<RootStackParamList, 'ScanPrinterScreen'>;
+
+const ScanPrinterScreen = ({ navigation }: Props) => {
   const [devices, setDevices] = useState<any[]>([]);
   const [isScanning, setIsScanning] = useState(false);
 
   const requestBluetoothPermission = async () => {
     if (Platform.OS === 'android') {
       try {
-        const granted = await PermissionsAndroid.request(
+        const permissions = [
           PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-          {
-            title: 'Permission de localisation',
-            message: "L'application a besoin de la localisation pour scanner les appareils Bluetooth",
-            buttonNeutral: 'Demander plus tard',
-            buttonNegative: 'Annuler',
-            buttonPositive: 'OK',
-          }
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+        ];
+        const granted = await PermissionsAndroid.requestMultiple(permissions);
+        return Object.values(granted).every(
+          (result) => result === PermissionsAndroid.RESULTS.GRANTED
         );
-        return granted === PermissionsAndroid.RESULTS.GRANTED;
       } catch (err) {
-        console.warn(err);
+        console.warn('Erreur permissions Bluetooth:', err);
         return false;
       }
     }
@@ -31,7 +45,7 @@ const ScanPrinterScreen = ({ navigation }: any) => {
   const scanPrinters = async () => {
     const hasPermission = await requestBluetoothPermission();
     if (!hasPermission) {
-      Alert.alert('Erreur', 'Permission requise pour scanner les appareils Bluetooth');
+      Alert.alert('Permission refusée', 'Certaines permissions Bluetooth sont refusées.');
       return;
     }
 
@@ -39,17 +53,47 @@ const ScanPrinterScreen = ({ navigation }: any) => {
     setDevices([]);
 
     try {
-      const pairedDevices = await BluetoothEscposPrinter.getDeviceList();
-      setDevices(
-        pairedDevices.filter((device: any) =>
-          device.name && (device.name.includes('Printer') || device.name.includes('POS'))
-        )
+      const pairedList = await BluetoothManager.enableBluetooth();
+      const parsed = pairedList.map((item: string) => JSON.parse(item));
+      const filtered = parsed.filter(
+        (d: any) => d.name && (d.name.includes('Printer') || d.name.includes('POS'))
       );
-    } catch (error) {
-      console.error('Scan error:', error);
-      Alert.alert('Erreur', 'Échec du scan des appareils Bluetooth');
+      setDevices(filtered);
+      if (filtered.length === 0) {
+        Alert.alert('Aucune imprimante trouvée', 'Vérifiez que votre imprimante est allumée.');
+      }
+    } catch (error: any) {
+      console.error('[Erreur scan Bluetooth]', error);
+      Alert.alert('Erreur', error?.message || 'Erreur inconnue');
     } finally {
       setIsScanning(false);
+    }
+  };
+
+  const handlePrint = async () => {
+    try {
+      const enabled = await BluetoothManager.isBluetoothEnabled();
+      if (!enabled) {
+        await BluetoothManager.enableBluetooth();
+      }
+
+      const devices = await BluetoothManager.enableBluetooth();
+      const paired = devices.map((d: string) => JSON.parse(d));
+      if (!paired.length) {
+        Alert.alert('Aucune imprimante appairée');
+        return;
+      }
+
+      await BluetoothManager.connect(paired[0].address);
+      await BluetoothEscposPrinter.printerInit();
+      await BluetoothEscposPrinter.printText('🧾 Hello World\n\r', {
+        encoding: 'GBK',
+        widthtimes: 2,
+        heigthtimes: 2,
+        fonttype: 1,
+      });
+    } catch (error: any) {
+      Alert.alert('Erreur impression', error?.message || 'Erreur inconnue');
     }
   };
 
@@ -65,7 +109,7 @@ const ScanPrinterScreen = ({ navigation }: any) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Imprimantes Bluetooth disponibles</Text>
+      <Text style={styles.title}>🖨️ Sélectionnez une imprimante</Text>
 
       <TouchableOpacity
         style={styles.scanButton}
@@ -73,8 +117,12 @@ const ScanPrinterScreen = ({ navigation }: any) => {
         disabled={isScanning}
       >
         <Text style={styles.scanButtonText}>
-          {isScanning ? 'Scan en cours...' : 'Scanner les imprimantes'}
+          {isScanning ? '🔎 Scanning...' : '🔍 Scanner'}
         </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.printButton} onPress={handlePrint}>
+        <Text style={styles.printButtonText}>🧾 Imprimer Test</Text>
       </TouchableOpacity>
 
       <FlatList
@@ -84,7 +132,9 @@ const ScanPrinterScreen = ({ navigation }: any) => {
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
           <Text style={styles.emptyText}>
-            {isScanning ? 'Recherche en cours...' : 'Aucune imprimante trouvée'}
+            {isScanning
+              ? 'Recherche en cours...'
+              : 'Aucune imprimante détectée'}
           </Text>
         }
       />
@@ -96,43 +146,61 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#fff',
+    backgroundColor: '#f3f4f6',
   },
   title: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 22,
+    fontWeight: '600',
     marginBottom: 20,
+    textAlign: 'center',
+    color: '#111827',
   },
   scanButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#2563eb',
     padding: 15,
-    borderRadius: 5,
-    marginBottom: 20,
+    borderRadius: 10,
+    marginBottom: 10,
   },
   scanButtonText: {
-    color: 'white',
-    textAlign: 'center',
+    color: '#fff',
     fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  printButton: {
+    backgroundColor: '#10b981',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 20,
+  },
+  printButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
   deviceItem: {
+    backgroundColor: '#fff',
     padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    marginVertical: 5,
+    borderRadius: 8,
+    elevation: 1,
   },
   deviceName: {
     fontSize: 16,
     fontWeight: 'bold',
+    color: '#111827',
   },
   deviceAddress: {
-    color: '#666',
+    fontSize: 14,
+    color: '#6b7280',
   },
   listContent: {
-    paddingBottom: 20,
+    paddingBottom: 30,
   },
   emptyText: {
     textAlign: 'center',
-    marginTop: 20,
-    color: '#888',
+    color: '#9ca3af',
+    marginTop: 30,
+    fontSize: 16,
   },
 });
 

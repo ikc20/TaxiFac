@@ -1,9 +1,12 @@
-/* eslint-disable react-native/no-inline-styles */
 import React from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-native';
 import { Formik } from 'formik';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { RootStackParamList, TicketData } from '../navigation/types';
 
-const TicketFormScreen = ({ route, navigation }: any) => {
+type Props = NativeStackScreenProps<RootStackParamList, 'TicketFormScreen'>;
+
+const TicketFormScreen = ({ route, navigation }: Props) => {
   const { device } = route.params;
 
   return (
@@ -12,22 +15,19 @@ const TicketFormScreen = ({ route, navigation }: any) => {
         Formulaire du Ticket
       </Text>
 
-      <Formik
+      <Formik<TicketData>
         initialValues={{
-          nom: 'SAHEL MOHAMED',
-          immat: 'GS-124-AC',
-          stat: '13257 - PARIS',
-          debut: '24/09/2024 17:49',
-          fin: '24/09/2024 17:49',
-          prixCourse: '150.80',
-          supplement: '7.00',
-          tva: '10',
+          nom: '',
+          immat: '',
+          stat: '',
+          debut: '',
+          fin: '',
+          prixCourse: '',
+          supplement: '',
+          tva: '',
         }}
         onSubmit={(values) => {
-          navigation.navigate('PreviewAndPrintScreen', {
-            ticketData: values,
-            device,
-          });
+          navigation.navigate('PreviewAndPrintScreen', { ticketData: values, device });
         }}
       >
         {({ handleChange, handleSubmit, values }) => (
@@ -52,7 +52,8 @@ const TicketFormScreen = ({ route, navigation }: any) => {
                     padding: 10,
                   }}
                   onChangeText={handleChange(key)}
-                  value={values[key]}
+                  value={values[key as keyof TicketData]}
+                  keyboardType={['prixCourse', 'supplement', 'tva'].includes(key) ? 'numeric' : 'default'}
                 />
               </View>
             ))}

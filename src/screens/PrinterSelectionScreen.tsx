@@ -1,7 +1,11 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../navigation/types';
 
-const PrinterSelectionScreen = ({ route, navigation }: any) => {
+type Props = NativeStackScreenProps<RootStackParamList, 'PrinterSelectionScreen'>;
+
+const PrinterSelectionScreen = ({ route, navigation }: Props) => {
   const { device } = route.params;
 
   return (
@@ -24,39 +28,13 @@ const PrinterSelectionScreen = ({ route, navigation }: any) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-    backgroundColor: '#fff',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  deviceInfo: {
-    backgroundColor: '#f5f5f5',
-    padding: 15,
-    borderRadius: 5,
-    marginBottom: 20,
-  },
-  deviceName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  deviceAddress: {
-    color: '#666',
-  },
-  button: {
-    backgroundColor: '#2196F3',
-    padding: 15,
-    borderRadius: 5,
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
+  container: { flex: 1, padding: 20, backgroundColor: '#fff' },
+  title: { fontSize: 20, fontWeight: 'bold', marginBottom: 20 },
+  deviceInfo: { backgroundColor: '#f5f5f5', padding: 15, borderRadius: 5, marginBottom: 20 },
+  deviceName: { fontSize: 16, fontWeight: 'bold' },
+  deviceAddress: { color: '#666' },
+  button: { backgroundColor: '#2196F3', padding: 15, borderRadius: 5, alignItems: 'center' },
+  buttonText: { color: 'white', fontWeight: 'bold' },
 });
 
 export default PrinterSelectionScreen;

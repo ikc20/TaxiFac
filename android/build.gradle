@@ -19,3 +19,18 @@ buildscript {
 }
 
 apply plugin: "com.facebook.react.rootproject"
+
+// AJOUTE CE BLOC ICI ⬇️
+allprojects {
+    repositories {
+        all {
+            allowInsecureProtocol = true
+        }
+        google()
+        mavenCentral()
+        jcenter {
+            allowInsecureProtocol = true
+            url "https://jcenter.bintray.com/"
+        }
+    }
+}
