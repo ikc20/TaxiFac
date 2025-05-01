@@ -1,17 +1,36 @@
+// src/screens/TicketFormScreen.tsx
 import React from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+} from 'react-native';
 import { Formik } from 'formik';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList, TicketData } from '../navigation/types';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type {
+  RootStackParamList,
+  TicketData,
+} from '../navigation/types';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'TicketFormScreen'>;
+type Props = NativeStackScreenProps<
+  RootStackParamList,
+  'TicketFormScreen'
+>;
 
 const TicketFormScreen = ({ route, navigation }: Props) => {
   const { device } = route.params;
 
   return (
     <ScrollView contentContainerStyle={{ padding: 20 }}>
-      <Text style={{ fontSize: 22, fontWeight: 'bold', marginBottom: 20 }}>
+      <Text
+        style={{
+          fontSize: 22,
+          fontWeight: 'bold',
+          marginBottom: 20,
+        }}
+      >
         Formulaire du Ticket
       </Text>
 
@@ -26,8 +45,11 @@ const TicketFormScreen = ({ route, navigation }: Props) => {
           supplement: '',
           tva: '',
         }}
-        onSubmit={(values) => {
-          navigation.navigate('PreviewAndPrintScreen', { ticketData: values, device });
+        onSubmit={values => {
+          navigation.navigate('PreviewAndPrintScreen', {
+            ticketData: values,
+            device,
+          });
         }}
       >
         {({ handleChange, handleSubmit, values }) => (
@@ -38,7 +60,7 @@ const TicketFormScreen = ({ route, navigation }: Props) => {
               { label: 'Statut', key: 'stat' },
               { label: 'Début', key: 'debut' },
               { label: 'Fin', key: 'fin' },
-              { label: 'Prix de la course (€)', key: 'prixCourse' },
+              { label: 'Prix (€)', key: 'prixCourse' },
               { label: 'Supplément (€)', key: 'supplement' },
               { label: 'TVA (%)', key: 'tva' },
             ].map(({ label, key }) => (
@@ -53,13 +75,17 @@ const TicketFormScreen = ({ route, navigation }: Props) => {
                   }}
                   onChangeText={handleChange(key)}
                   value={values[key as keyof TicketData]}
-                  keyboardType={['prixCourse', 'supplement', 'tva'].includes(key) ? 'numeric' : 'default'}
+                  keyboardType={
+                    ['prixCourse', 'supplement', 'tva'].includes(key)
+                      ? 'numeric'
+                      : 'default'
+                  }
                 />
               </View>
             ))}
 
             <TouchableOpacity
-              onPress={handleSubmit}
+              onPress={() => handleSubmit()}
               style={{
                 backgroundColor: '#2196F3',
                 padding: 15,
@@ -68,7 +94,14 @@ const TicketFormScreen = ({ route, navigation }: Props) => {
                 marginTop: 20,
               }}
             >
-              <Text style={{ color: 'white', fontWeight: 'bold' }}>Aperçu & Imprimer</Text>
+              <Text
+                style={{
+                  color: 'white',
+                  fontWeight: 'bold',
+                }}
+              >
+                Aperçu & Imprimer
+              </Text>
             </TouchableOpacity>
           </>
         )}

@@ -1,13 +1,7 @@
-import {
-  BluetoothManager,
-  BluetoothEscposPrinter,
-} from 'react-native-bluetooth-escpos-printer';
-import EscPosPrinter from 'react-native-bluetooth-escpos-printer';
-const { BluetoothManager, BluetoothEscposPrinter } = EscPosPrinter;
+import { BluetoothManager, BluetoothEscposPrinter } from 'react-native-bluetooth-escpos-printer';
 
 export const handlePrint = async () => {
   try {
-    // Activer Bluetooth
     const devices = await BluetoothManager.enableBluetooth();
     const pairedDevices = [];
 
@@ -26,13 +20,11 @@ export const handlePrint = async () => {
       return;
     }
 
-    const selectedDevice = pairedDevices[0]; // sélectionne le premier appareil
+    const selectedDevice = pairedDevices.find((d) => d.name === 'PT-210') || pairedDevices[0];
     console.log('Connexion à:', selectedDevice);
 
-    // Connexion
     await BluetoothManager.connect(selectedDevice.address);
 
-    // Impression
     await BluetoothEscposPrinter.printText("🧾 Hello World\n\r", {
       encoding: 'GBK',
       codepage: 0,
