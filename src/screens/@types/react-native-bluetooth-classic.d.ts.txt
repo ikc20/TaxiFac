@@ -1,0 +1,24 @@
+// react-native-bluetooth-classic.d.ts
+declare module 'react-native-bluetooth-classic' {
+  export interface BluetoothDevice {
+    name: string;
+    address: string;
+    id: string;
+  }
+
+  export interface BluetoothNativeModule {
+    requestEnable(): Promise<boolean>;
+    isEnabled(): Promise<boolean>;
+    disable(): Promise<boolean>;
+    list(): Promise<BluetoothDevice[]>;
+    connect(address: string): Promise<void>;
+    disconnect(): Promise<void>;
+    isConnected(): Promise<boolean>;
+    write(data: string): Promise<void>;  // Add this line
+    read(): Promise<string>;  // Optional: add if you need it
+    readUntilDelimiter(delimiter: string): Promise<string>;  // Optional
+  }
+
+  const BluetoothClassic: BluetoothNativeModule;
+  export default BluetoothClassic;
+}

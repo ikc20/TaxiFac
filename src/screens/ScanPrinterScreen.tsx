@@ -2,107 +2,122 @@ import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
+  FlatList,
   TouchableOpacity,
-  StyleSheet,
-  Alert,
-  ActivityIndicator,
-  Platform,
   PermissionsAndroid,
+  Platform,
+  Alert,
+  StyleSheet,
 } from 'react-native';
-
-// ON PREND MAINTENANT DES NAMED EXPORTS
-import {
-  BluetoothManager,
+import RNBluetoothClassic, {
   BluetoothDevice,
-} from 'react-native-bluetooth-escpos-printer';
-
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../navigation/types';
+} from 'react-native-bluetooth-classic';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ScanPrinterScreen'>;
 
 const ScanPrinterScreen = ({ navigation }: Props) => {
-  const [loading, setLoading] = useState(true);
-  const [device, setDevice] = useState<BluetoothDevice | null>(null);
+  const [devices, setDevices] = useState<BluetoothDevice[]>([]);
+  const [connectedDevice, setConnectedDevice] = useState<BluetoothDevice | null>(null);
 
-  const requestBluetoothPermission = async (): Promise<boolean> => {
-    if (Platform.OS !== 'android') return true;
-    const granted = await PermissionsAndroid.requestMultiple([
-      PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
-      PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
-      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-    ]);
-    return Object.values(granted).every(
-      v => v === PermissionsAndroid.RESULTS.GRANTED
-    );
+  const requestPermissions = async () => {
+    if (Platform.OS === 'android') {
+      const granted = await PermissionsAndroid.requestMultiple([
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+        PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+      ]);
+      return Object.values(granted).every((v) => v === PermissionsAndroid.RESULTS.GRANTED);
+    }
+    return true;
   };
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const ok = await requestBluetoothPermission();
-        if (!ok) throw new Error('Permissions Bluetooth refusées');
-
-        await BluetoothManager.enableBluetooth();
-        const raw = await BluetoothManager.getDeviceList();
-        const paired = raw
-          .map(item => JSON.parse(item) as BluetoothDevice)
-          .filter(Boolean);
-
-        const pt210 = paired.find(d =>
-          d.name.toUpperCase().includes('PT-210')
-        );
-        if (!pt210) throw new Error('PT-210 non appairée');
-
-        await BluetoothManager.connectPrinter(pt210.address);
-        setDevice(pt210);
-      } catch (err: any) {
-        Alert.alert('Erreur', err.message);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
-
-  const handleContinue = () => {
-    if (device) {
-      navigation.navigate('TicketFormScreen', { device });
-    } else {
-      Alert.alert('Erreur', 'Aucune imprimante connectée');
+  const scanDevices = async () => {
+    try {
+      const bonded = await RNBluetoothClassic.getBondedDevices();
+      setDevices(bonded);
+      Alert.alert('Scan terminé', `Appareils appairés trouvés : ${bonded.length}`);
+    } catch (err: any) {
+      Alert.alert('Erreur', err.message || 'Échec du scan Bluetooth');
     }
   };
 
+  const connectToDevice = async (device: BluetoothDevice) => {
+    try {
+      const connected = await device.connect();
+      if (connected) {
+        setConnectedDevice(device);
+        Alert.alert('✅ Connecté à ' + device.name);
+        navigation.navigate('TicketFormScreen', { device: { name: device.name, address: device.address } });
+      }
+    } catch (err: any) {
+      Alert.alert('❌ Connexion échouée', err.message || 'Erreur inconnue');
+    }
+  };
+
+  useEffect(() => {
+    requestPermissions();
+  }, []);
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Connexion à PT-210</Text>
-      {loading ? (
-        <ActivityIndicator size="large" color="#2196F3" />
-      ) : (
-        <TouchableOpacity
-          style={styles.button}
-          onPress={handleContinue}
-        >
-          <Text style={styles.buttonText}>Continuer</Text>
-        </TouchableOpacity>
-      )}
+      <Text style={styles.header}>Sélectionnez une imprimante appairée</Text>
+
+      <TouchableOpacity style={styles.scanButton} onPress={scanDevices}>
+        <Text style={styles.scanButtonText}>🔍 Scanner les appareils</Text>
+      </TouchableOpacity>
+
+      <FlatList
+        data={devices}
+        keyExtractor={(item) => item.address}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            onPress={() => connectToDevice(item)}
+            style={styles.deviceItem}
+          >
+            <Text style={styles.deviceText}>{item.name || 'Sans nom'} - {item.address}</Text>
+          </TouchableOpacity>
+        )}
+      />
     </View>
   );
 };
 
+export default ScanPrinterScreen;
+
 const styles = StyleSheet.create({
   container: {
-    flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20
+    flex: 1,
+    padding: 20,
+    backgroundColor: '#fff',
   },
-  title: {
-    fontSize: 20, fontWeight: 'bold', marginBottom: 20, textAlign: 'center'
+  header: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 12,
+    textAlign: 'center',
   },
-  button: {
-    backgroundColor: '#2196F3', padding: 15, borderRadius: 10
+  scanButton: {
+    backgroundColor: '#2563EB',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    alignItems: 'center',
   },
-  buttonText: {
-    color: 'white', fontWeight: 'bold'
+  scanButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  deviceItem: {
+    paddingVertical: 14,
+    paddingHorizontal: 10,
+    borderBottomWidth: 1,
+    borderColor: '#ccc',
+  },
+  deviceText: {
+    fontSize: 16,
+    color: '#111',
   },
 });
-
-export default ScanPrinterScreen;
